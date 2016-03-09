@@ -8,7 +8,6 @@ import (
 	_ "github.com/go-sql-driver/mysql"
 
 	"encoding/json"
-	"fmt"
 	"io/ioutil"
 	. "stockmodel"
 )

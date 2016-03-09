@@ -65,7 +65,7 @@ func CrawlHistory() {
 		ParseYahooCSV(string(result))
 		//fmt.Println(string(result))
 
-		time.Sleep(time.Second * 2)
+		time.Sleep(time.Minute * 1)
 	}
 }
 
