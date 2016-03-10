@@ -25,10 +25,10 @@ func GetSymbolParameter() string {
 	return buffer.String()
 }
 
-func ParseYahooCSV(target string) {
+func ParseYahooCSV(target string) (logs []model.StockLog) {
 	reader := csv.NewReader(strings.NewReader(target))
 	for {
-		history := model.StockLog{}
+		stockLog := model.StockLog{}
 
 		record, err := reader.Read()
 		if err == io.EOF {
@@ -38,14 +38,15 @@ func ParseYahooCSV(target string) {
 			log.Fatal(err)
 		}
 
-		history.Code = record[0]
-		history.Ask = record[2]
-		history.Bid = record[3]
+		stockLog.Code = record[0]
+		stockLog.Ask = record[2]
+		stockLog.Bid = record[3]
 
-		go stockdb.InsertStockLog(history)
-
-		fmt.Println(record)
+		logs = append(logs, stockLog)
+		go stockdb.InsertStockLog(stockLog)
 	}
+
+	return logs
 }
 
 func CollectStockLog() {
@@ -63,9 +64,8 @@ func CollectStockLog() {
 			log.Fatal(err)
 		}
 		ParseYahooCSV(string(result))
-		//fmt.Println(string(result))
 
-		time.Sleep(time.Minute * 1)
+		time.Sleep(time.Second * 1)
 	}
 }
 
