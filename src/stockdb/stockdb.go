@@ -7,12 +7,8 @@ import (
 
 	"database/sql"
 	"encoding/json"
-	"fmt"
 	"io/ioutil"
 	"log"
-	"path"
-	"runtime"
-	"strings"
 )
 
 type DbServerInfo struct {
@@ -27,17 +23,7 @@ type DbServerInfo struct {
 var dbInfo DbServerInfo
 
 func init() {
-	_, filename, _, _ := runtime.Caller(1)
-	currentPath := path.Dir(filename)
-
-	var configPath string
-	if strings.HasSuffix(currentPath, "src") {
-		configPath = "./dbServerInfo.json"
-	} else {
-		configPath = "../dbServerInfo.json"
-	}
-	fmt.Println(path.Dir(filename))
-	file, err := ioutil.ReadFile(configPath)
+	file, err := ioutil.ReadFile("./dbServerInfo.json")
 	if err != nil {
 		log.Fatal(err)
 	}
