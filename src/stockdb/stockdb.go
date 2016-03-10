@@ -91,7 +91,7 @@ func InsertStockLog(stockLog StockLog) int64 {
 		defer conn.Close()
 	}
 
-	statment, err := conn.Prepare("INSERT INTO stock_log(`stock_code`, `stock_market`, `ask`, `bid`) VALUES(?, ?, ?)")
+	statment, err := conn.Prepare("INSERT INTO stock_log(`stock_code`, `stock_market`, `ask`, `bid`) VALUES(?, ?, ?, ?)")
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -128,7 +128,7 @@ func SelectStock() []StockSymbol {
 
 	for rows.Next() {
 		symbol := StockSymbol{}
-		rows.Scan(&symbol.Code, &symbol.Name)
+		rows.Scan(&symbol.Code, &symbol.Market, &symbol.Name)
 		symbols = append(symbols, symbol)
 	}
 

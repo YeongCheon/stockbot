@@ -13,5 +13,12 @@ func TestSelectUser(t *testing.T) {
 }
 
 func TestSelectStock(t *testing.T) {
+	result := SelectStock()
+	if len(result) != 1 {
+		t.Fatalf("result size is wrong. your result size is %d", len(result))
+	}
 
+	if result[0].Code != "005930" {
+		t.Fatalf("your code is wrong. your code is %s", result[0].Code)
+	}
 }
