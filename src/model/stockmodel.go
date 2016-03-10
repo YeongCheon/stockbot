@@ -7,6 +7,7 @@ import (
 type StockSymbol struct {
 	Code         string
 	Name         string
+	Market       string
 	CategoryCode string
 	Category     string
 	StockTotal   uint
