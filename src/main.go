@@ -10,14 +10,14 @@ import (
 	"bytes"
 	"encoding/csv"
 	"io"
+	"model"
 	"stockdb"
-	"stockmodel"
 	"strings"
 )
 
 func GetSymbolParameter() string {
 	var buffer bytes.Buffer
-	for _, symbol := range stockdb.SelectKospiSymbols() {
+	for _, symbol := range stockdb.SelectStock() {
 		buffer.WriteString(symbol.Code + ".KS+")
 	}
 
@@ -28,7 +28,7 @@ func GetSymbolParameter() string {
 func ParseYahooCSV(target string) {
 	reader := csv.NewReader(strings.NewReader(target))
 	for {
-		history := stockmodel.StockHistory{}
+		history := model.StockLog{}
 
 		record, err := reader.Read()
 		if err == io.EOF {
@@ -42,13 +42,13 @@ func ParseYahooCSV(target string) {
 		history.Ask = record[2]
 		history.Bid = record[3]
 
-		go stockdb.InsertHistory(history)
+		go stockdb.InsertStockLog(history)
 
 		fmt.Println(record)
 	}
 }
 
-func CrawlHistory() {
+func CollectStockLog() {
 	s := "s=" + GetSymbolParameter()
 	f := "f=" + "snabt1" // format: symbol, name, ask, bid, last trade time
 	url := "http://finance.yahoo.com/d/quotes.csv?" + s + "&" + f
@@ -70,5 +70,5 @@ func CrawlHistory() {
 }
 
 func main() {
-	CrawlHistory()
+	CollectStockLog()
 }

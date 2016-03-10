@@ -1,15 +1,18 @@
 package stockdb
 
 import (
-	"database/sql"
-	"log"
-	"os"
+	. "model"
 
 	_ "github.com/go-sql-driver/mysql"
 
+	"database/sql"
 	"encoding/json"
+	"fmt"
 	"io/ioutil"
-	. "stockmodel"
+	"log"
+	"path"
+	"runtime"
+	"strings"
 )
 
 type DbServerInfo struct {
@@ -24,7 +27,17 @@ type DbServerInfo struct {
 var dbInfo DbServerInfo
 
 func init() {
-	file, err := ioutil.ReadFile("./dbServerInfo.json")
+	_, filename, _, _ := runtime.Caller(1)
+	currentPath := path.Dir(filename)
+
+	var configPath string
+	if strings.HasSuffix(currentPath, "src") {
+		configPath = "./dbServerInfo.json"
+	} else {
+		configPath = "../dbServerInfo.json"
+	}
+	fmt.Println(path.Dir(filename))
+	file, err := ioutil.ReadFile(configPath)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -32,37 +45,92 @@ func init() {
 	json.Unmarshal(file, &dbInfo)
 }
 
-func InsertHistory(history StockHistory) {
+func getConn() *sql.DB {
 	conn, err := sql.Open("mysql", dbInfo.Username+":"+dbInfo.Password+"@"+dbInfo.Protocol+"("+dbInfo.Address+":"+dbInfo.Port+")/"+dbInfo.Dbname)
 	if err != nil {
 		log.Fatal(err)
+		return nil
 	}
-	defer conn.Close()
 
-	statment, err := conn.Prepare("INSERT INTO stockbot_kospi_history(history_code, history_ask, history_bid) VALUES(?, ?, ?)")
+	return conn
+}
+
+func InsertStock(symbol StockSymbol) {
+	conn := getConn()
+	if conn != nil {
+		defer conn.Close()
+	}
+}
+
+func InsertUser(user User) {
+	conn := getConn()
+	if conn != nil {
+		defer conn.Close()
+	}
+	statment, err := conn.Prepare("INSERT INTO user(`email`, `name`) VALUES(?, ?)")
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	result, err := statment.Exec(history.Code, history.Ask, history.Bid)
+	result, err := statment.Exec(user.Email, user.Name)
 	if err != nil {
 		log.Fatal(err)
 		log.Fatal(result)
 	}
 }
 
-func SelectKospiSymbols() []StockSymbol {
-	var symbols []StockSymbol
-	symbols = []StockSymbol{}
+func SelectUser(email string) User {
+	conn := getConn()
+	if conn != nil {
+		defer conn.Close()
+	}
 
-	conn, err := sql.Open("mysql", dbInfo.Username+":"+dbInfo.Password+"@"+dbInfo.Protocol+"("+dbInfo.Address+":"+dbInfo.Port+")/"+dbInfo.Dbname)
+	statment, err := conn.Prepare("SELECT `email`, `name` FROM `user` WHERE email = ?")
+	rows, err := statment.Query(email)
 	if err != nil {
 		log.Fatal(err)
-		os.Exit(1)
 	}
-	defer conn.Close()
 
-	statment, err := conn.Prepare("SELECT kospi_code, kospi_name FROM stockbot_kospi")
+	user := User{}
+	for rows.Next() {
+		rows.Scan(&user.Email, &user.Name)
+	}
+
+	return user
+}
+
+func InsertStockLog(stockLog StockLog) int64 {
+	conn := getConn()
+	if conn != nil {
+		defer conn.Close()
+	}
+
+	statment, err := conn.Prepare("INSERT INTO stock_log(`stock_code`, `stock_market`, `ask`, `bid`) VALUES(?, ?, ?)")
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	result, err := statment.Exec(stockLog.Code, stockLog.Market, stockLog.Ask, stockLog.Bid)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	lastInsertId, err := result.LastInsertId()
+	if err != nil {
+		log.Fatal(err)
+	}
+	return lastInsertId
+}
+
+func SelectStock() []StockSymbol {
+	symbols := []StockSymbol{}
+
+	conn := getConn()
+	if conn != nil {
+		defer conn.Close()
+	}
+
+	statment, err := conn.Prepare("SELECT `code`, `market`, `name` FROM `stock`")
 	if err != nil {
 		log.Fatal(err)
 	}

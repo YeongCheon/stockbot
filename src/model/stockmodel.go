@@ -1,4 +1,4 @@
-package stockmodel
+package model
 
 import (
 	"time"
@@ -18,9 +18,10 @@ type StockSymbol struct {
 	TotalCount   uint
 }
 
-type StockHistory struct {
+type StockLog struct {
 	Id       uint
 	Code     string
+	Market   string
 	Ask      string //매도가
 	Bid      string //매수가
 	Datetime time.Time
