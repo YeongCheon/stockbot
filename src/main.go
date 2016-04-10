@@ -4,6 +4,7 @@ import (
 	"model"
 	"stockdb"
 
+	"bufio"
 	"bytes"
 	"encoding/csv"
 	"fmt"
@@ -11,6 +12,7 @@ import (
 	"io/ioutil"
 	"log"
 	"net/http"
+	"os"
 	"strings"
 	"time"
 )
@@ -49,9 +51,10 @@ func ParseYahooCSV(target string) (logs []model.StockLog) {
 	return logs
 }
 
-func CollectStockLog() {
+func CollectStockLog(controller chan string) {
 	const MARKETSTARTTIME int = 9
 	const MARKETENDTIME int = 15
+	const TICK time.Duration = 1 * time.Second
 
 	s := "s=" + GetSymbolParameter()
 	f := "f=" + "snabt1" // format: symbol, name, ask, bid, last trade time
@@ -64,42 +67,66 @@ func CollectStockLog() {
 	}
 	for {
 		now := time.Now()
-		if now.Hour() < MARKETSTARTTIME || now.Hour() >= MARKETENDTIME {
+
+		if now.Weekday() == 0 || now.Weekday() == 6 {
+			//fmt.Println("today is weekend")
+			/*
+				var leftDay int
+				if 1-now.Weekday() < 0 {
+					leftDay = 2
+				} else {
+					leftDay = 1
+				}
+				nextStartTime := time.Date(now.Year(), now.Month(), now.Day()+leftDay, 9, 0, 0, 0, timezone)
+				time.Sleep(time.Millisecond*time.Duration(nextStartTime.UnixNano()/1000) - time.Duration(now.UnixNano()/1000))
+			*/
+		} else if now.Hour() < MARKETSTARTTIME || now.Hour() >= MARKETENDTIME {
 			fmt.Println("market close")
 			nextStartTime := time.Date(now.Year(), now.Month(), now.Day()+1, 9, 0, 0, 0, timezone)
 			time.Sleep(time.Millisecond*time.Duration(nextStartTime.UnixNano()/1000) - time.Duration(now.UnixNano()/1000))
-			//continue
-
-		}
-		if now.Weekday() == 0 || now.Weekday() == 6 {
-			fmt.Println("today is weekend")
-			var leftDay int
-			if 1-now.Weekday() < 0 {
-				leftDay = 2
-			} else {
-				leftDay = 1
+		} else {
+			res, err := http.Get(url)
+			if err != nil {
+				log.Fatal(err)
 			}
-			nextStartTime := time.Date(now.Year(), now.Month(), now.Day()+leftDay, 9, 0, 0, 0, timezone)
-			fmt.Println(now)
-			fmt.Println(nextStartTime)
-			time.Sleep(time.Millisecond*time.Duration(nextStartTime.UnixNano()/1000) - time.Duration(now.UnixNano()/1000))
-			continue
+			result, err := ioutil.ReadAll(res.Body)
+			if err != nil {
+				log.Fatal(err)
+			}
+			ParseYahooCSV(string(result))
 		}
 
-		res, err := http.Get(url)
-		if err != nil {
-			log.Fatal(err)
+		isStop := false
+		select {
+		case param := <-controller:
+			if param == "stop" {
+				fmt.Println("break")
+				isStop = true
+			}
+		default:
 		}
-		result, err := ioutil.ReadAll(res.Body)
-		if err != nil {
-			log.Fatal(err)
-		}
-		ParseYahooCSV(string(result))
 
-		time.Sleep(time.Second * 1)
+		if isStop {
+			break
+		}
+
+		fmt.Println("collecting...")
+		time.Sleep(TICK)
 	}
 }
 
 func main() {
-	CollectStockLog()
+	var controller chan string
+	controller = make(chan string)
+	go CollectStockLog(controller)
+
+	consoleReader := bufio.NewReader(os.Stdin)
+	for {
+		tmp, _ := consoleReader.ReadString('\n')
+		tmp = strings.Replace(tmp, "\n", "", -1)
+		controller <- tmp
+		if tmp == "stop" {
+			break
+		}
+	}
 }
