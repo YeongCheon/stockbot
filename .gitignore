@@ -27,5 +27,5 @@ _testmain.go
 *.prof
 
 
-dbServerInfo.json
+**/dbServerInfo.json
 bin/*
