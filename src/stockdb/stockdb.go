@@ -11,15 +11,6 @@ import (
 	"log"
 )
 
-type DbServerInfo struct {
-	Username string `json:username`
-	Password string `json:passowrd`
-	Protocol string `json:protocol`
-	Address  string `json:address`
-	Port     string `json:port`
-	Dbname   string `json:dbname`
-}
-
 var dbInfo DbServerInfo
 
 func init() {
@@ -124,12 +115,12 @@ func SelectStock() []StockSymbol {
 	rows, err := statment.Query()
 	if err != nil {
 		log.Fatal(err)
-	}
-
-	for rows.Next() {
-		symbol := StockSymbol{}
-		rows.Scan(&symbol.Code, &symbol.Market, &symbol.Name)
-		symbols = append(symbols, symbol)
+	} else {
+		for rows.Next() {
+			symbol := StockSymbol{}
+			rows.Scan(&symbol.Code, &symbol.Market, &symbol.Name)
+			symbols = append(symbols, symbol)
+		}
 	}
 
 	return symbols
