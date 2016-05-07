@@ -1,4 +1,4 @@
-package stockdb
+package db
 
 import (
 	"testing"

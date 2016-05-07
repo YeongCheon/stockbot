@@ -1,7 +1,7 @@
-package stockdb
+package db
 
 import (
-	. "model"
+	. "stockbot/model"
 
 	_ "github.com/go-sql-driver/mysql"
 

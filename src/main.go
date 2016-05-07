@@ -1,8 +1,8 @@
 package main
 
 import (
-	"model"
-	"stockdb"
+	stockdb "stockbot/db"
+	"stockbot/model"
 
 	"bufio"
 	"bytes"

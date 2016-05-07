@@ -1,7 +1,7 @@
-package stockdb
+package db
 
 import (
-	. "model"
+	. "stockbot/model"
 
 	"fmt"
 	"testing"
