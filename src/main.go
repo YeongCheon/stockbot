@@ -85,15 +85,17 @@ func CollectStockLog(controller chan string) {
 			nextStartTime := time.Date(now.Year(), now.Month(), now.Day()+1, 9, 0, 0, 0, timezone)
 			time.Sleep(time.Millisecond*time.Duration(nextStartTime.UnixNano()/1000) - time.Duration(now.UnixNano()/1000))
 		} else {
-			res, err := http.Get(url)
-			if err != nil {
-				log.Fatal(err)
-			}
-			result, err := ioutil.ReadAll(res.Body)
-			if err != nil {
-				log.Fatal(err)
-			}
-			ParseYahooCSV(string(result))
+			go func() {
+				res, err := http.Get(url)
+				if err != nil {
+					log.Fatal(err)
+				}
+				result, err := ioutil.ReadAll(res.Body)
+				if err != nil {
+					log.Fatal(err)
+				}
+				ParseYahooCSV(string(result))
+			}()
 		}
 
 		isStop := false
