@@ -10,7 +10,7 @@ type TradeLog struct {
 	StockCode   string
 	StockMarket string
 	TradeType   string
-	Price       uint
+	Price       int64
 	Count       uint
 	Timestamp   time.Time
 }

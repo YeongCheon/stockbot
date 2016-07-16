@@ -25,7 +25,7 @@ func init() {
 func getConn() *sql.DB {
 	conn, err := sql.Open("mysql", dbInfo.Username+":"+dbInfo.Password+"@"+dbInfo.Protocol+"("+dbInfo.Address+":"+dbInfo.Port+")/"+dbInfo.Dbname)
 	if err != nil {
-		log.Fatal(err)
+		log.Fatal("connect error : ", err)
 		return nil
 	}
 

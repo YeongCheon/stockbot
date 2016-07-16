@@ -23,7 +23,7 @@ type StockLog struct {
 	Id       uint
 	Code     string
 	Market   string
-	Ask      string //매도가
-	Bid      string //매수가
+	Ask      int64 //매도가
+	Bid      int64 //매수가
 	Datetime time.Time
 }

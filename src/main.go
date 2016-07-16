@@ -5,7 +5,6 @@ import (
 	"stockbot/model"
 
 	"bufio"
-	"bytes"
 	"encoding/csv"
 	"fmt"
 	"io"
@@ -13,22 +12,45 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"strconv"
 	"strings"
 	"time"
 )
 
-func GetSymbolParameter() string {
-	var buffer bytes.Buffer
+func GetCrawlUrlList() []string {
+	result := []string{}
 	for _, symbol := range stockdb.SelectStock() {
-		buffer.WriteString(symbol.Code + ".KS+")
+		s := "s=" + symbol.Code + ".KS"
+		f := "f=" + "snabt1" // format: symbol, name, ask, bid, last trade time
+		url := "http://finance.yahoo.com/d/quotes.csv?" + s + "&" + f
+		result = append(result, url)
 	}
 
-	//return "005930.KS+155900.KS"
-	return buffer.String()
+	return result
 }
 
-func ParseYahooCSV(target string) (logs []model.StockLog) {
-	reader := csv.NewReader(strings.NewReader(target))
+func GetStockInfo(stockCode string) model.StockLog {
+	s := "s=" + stockCode + ".KS"
+	f := "f=" + "snabt1" // format: symbol, name, ask, bid, last trade time
+	url := "http://finance.yahoo.com/d/quotes.csv?" + s + "&" + f
+
+	res, err := http.Get(url)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	result, err := ioutil.ReadAll(res.Body)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	parseResults := ParseYahooCSV(result)
+
+	return parseResults[0]
+}
+
+func ParseYahooCSV(target []byte) (logs []model.StockLog) {
+	reader := csv.NewReader(strings.NewReader(string(target)))
 	for {
 		stockLog := model.StockLog{}
 
@@ -41,8 +63,17 @@ func ParseYahooCSV(target string) (logs []model.StockLog) {
 		}
 
 		stockLog.Code = record[0]
-		stockLog.Ask = record[2]
-		stockLog.Bid = record[3]
+		ask, err := strconv.Atoi(record[2])
+		if err != nil {
+			log.Fatal(err)
+		}
+		bid, err := strconv.Atoi(record[3])
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		stockLog.Ask = int64(ask)
+		stockLog.Bid = int64(bid)
 
 		logs = append(logs, stockLog)
 		//go stockdb.InsertStockLog(stockLog)
@@ -54,81 +85,114 @@ func ParseYahooCSV(target string) (logs []model.StockLog) {
 func CollectStockLog(controller chan string) {
 	const MARKETSTARTTIME int = 9
 	const MARKETENDTIME int = 15
-	const TICK time.Duration = 1 * time.Second
 
-	s := "s=" + GetSymbolParameter()
-	f := "f=" + "snabt1" // format: symbol, name, ask, bid, last trade time
-	url := "http://finance.yahoo.com/d/quotes.csv?" + s + "&" + f
-	fmt.Println("url : " + url)
+	const maxGoroutineCnt int = 100
+	limitCh := make(chan bool, maxGoroutineCnt)
 
-	timezone, err := time.LoadLocation("Asia/Seoul")
-	if err != nil {
-		log.Fatal(err)
-	}
+	/*
+		timezone, err := time.LoadLocation("Asia/Seoul")
+		if err != nil {
+			log.Fatal(err)
+		}
+	*/
+
 	for {
-		now := time.Now()
+		urls := GetCrawlUrlList()
 
-		if now.Weekday() == 0 || now.Weekday() == 6 {
-			//fmt.Println("today is weekend")
-			/*
-				var leftDay int
-				if 1-now.Weekday() < 0 {
-					leftDay = 2
-				} else {
-					leftDay = 1
-				}
-				nextStartTime := time.Date(now.Year(), now.Month(), now.Day()+leftDay, 9, 0, 0, 0, timezone)
-				time.Sleep(time.Millisecond*time.Duration(nextStartTime.UnixNano()/1000) - time.Duration(now.UnixNano()/1000))
-			*/
-		} else if now.Hour() < MARKETSTARTTIME || now.Hour() >= MARKETENDTIME {
-			fmt.Println("market close")
-			nextStartTime := time.Date(now.Year(), now.Month(), now.Day()+1, 9, 0, 0, 0, timezone)
-			time.Sleep(time.Millisecond*time.Duration(nextStartTime.UnixNano()/1000) - time.Duration(now.UnixNano()/1000))
-		} else {
-			go func() {
-				res, err := http.Get(url)
-				if err != nil {
-					log.Fatal(err)
-				}
-				result, err := ioutil.ReadAll(res.Body)
-				if err != nil {
-					log.Fatal(err)
-				}
-				ParseYahooCSV(string(result))
-			}()
-		}
+		for _, url := range urls {
+			now := time.Now()
 
-		isStop := false
-		select {
-		case param := <-controller:
-			if param == "stop" {
-				fmt.Println("break")
-				isStop = true
+			if now.Weekday() == 0 || now.Weekday() == 6 {
+				fmt.Println("today is weekend")
+			} else if now.Hour() < MARKETSTARTTIME || now.Hour() >= MARKETENDTIME {
+				fmt.Println("market was closed")
+			} else {
+				limitCh <- true
+
+				go func() {
+					defer func() {
+						<-limitCh
+					}()
+
+					res, err := http.Get(url)
+					if err != nil {
+						log.Fatal(err)
+					}
+
+					result, err := ioutil.ReadAll(res.Body)
+					if err != nil {
+						log.Fatal(err)
+					}
+
+					stockLogs := ParseYahooCSV(result)
+					for _, stockLog := range stockLogs {
+						stockdb.InsertStockLog(stockLog)
+					}
+				}()
+
 			}
-		default:
-		}
+			isStop := false
+			select {
+			case param := <-controller:
+				if param == "stop" {
+					fmt.Println("break")
+					isStop = true
+				}
+			default:
+			}
 
-		if isStop {
+			if isStop {
+				break
+			}
+		}
+	}
+}
+
+func buyStock(code string, cnt uint) {
+	symbol := GetStockInfo(code)
+
+	tradeLog := model.TradeLog{
+		UserEmail:   "kyc1682@gmail.com",
+		StockCode:   symbol.Code,
+		StockMarket: symbol.Market,
+		TradeType:   "ask", //매수
+		Price:       symbol.Ask,
+		Count:       cnt,
+	}
+	stockdb.InsertTradeLog(tradeLog)
+}
+
+func commander(commandCh chan<- string) {
+	consoleReader := bufio.NewReader(os.Stdin)
+
+	for {
+		inputStr, _ := consoleReader.ReadString('\n')
+		inputStr = strings.Replace(inputStr, "\n", "", -1)
+		args := strings.Split(inputStr, " ")
+		command := args[0]
+
+		switch command {
+		case "exit":
 			break
-		}
+		case "start", "stop":
+			commandCh <- inputStr
+		case "buy":
+			code := args[1]
+			cnt, err := strconv.Atoi(args[2])
+			if err != nil {
+				log.Fatal(err)
+			}
 
-		fmt.Println("collecting...")
-		time.Sleep(TICK)
+			buyStock(code, uint(cnt))
+		}
 	}
 }
 
 func main() {
-	var controller chan string
-	controller = make(chan string)
-	go CollectStockLog(controller)
+	var commandCh chan string
+	commandCh = make(chan string)
 
-	consoleReader := bufio.NewReader(os.Stdin)
-	for {
-		tmp, _ := consoleReader.ReadString('\n')
-		tmp = strings.Replace(tmp, "\n", "", -1)
-		controller <- tmp
-		if tmp == "stop" {
-			break
-		}
-	}
+	go CollectStockLog(commandCh)
+
+	commander(commandCh)
 }
