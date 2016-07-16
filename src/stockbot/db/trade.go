@@ -24,7 +24,7 @@ func InsertTradeLog(tradeLog TradeLog) int64 {
 		defer conn.Close()
 	}
 
-	statment, err := conn.Prepare("INSERT INTO trade_log(`user_email`, `stock_code`, `stock_market`, `trade_type`, `price`) VALUES (?, ?, ?, ?, ?)")
+	statment, err := conn.Prepare("INSERT INTO trade_log(`member_email`, `stock_code`, `stock_market`, `trade_type`, `price`) VALUES (?, ?, ?, ?, ?)")
 	if err != nil {
 		log.Fatal(err)
 	}

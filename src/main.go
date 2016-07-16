@@ -63,17 +63,17 @@ func ParseYahooCSV(target []byte) (logs []model.StockLog) {
 		}
 
 		stockLog.Code = record[0]
-		ask, err := strconv.Atoi(record[2])
+		ask, err := strconv.ParseFloat(record[2], 64)
 		if err != nil {
 			log.Fatal(err)
 		}
-		bid, err := strconv.Atoi(record[3])
+		bid, err := strconv.ParseFloat(record[3], 64)
 		if err != nil {
 			log.Fatal(err)
 		}
 
-		stockLog.Ask = int64(ask)
-		stockLog.Bid = int64(bid)
+		stockLog.Ask = ask
+		stockLog.Bid = bid
 
 		logs = append(logs, stockLog)
 		//go stockdb.InsertStockLog(stockLog)
@@ -96,8 +96,9 @@ func CollectStockLog(controller chan string) {
 		}
 	*/
 
+	urls := GetCrawlUrlList()
+
 	for {
-		urls := GetCrawlUrlList()
 
 		for _, url := range urls {
 			now := time.Now()

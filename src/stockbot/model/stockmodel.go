@@ -11,8 +11,8 @@ type StockSymbol struct {
 	CategoryCode string
 	Category     string
 	StockTotal   uint
-	Capital      int64
-	FaceValue    int64
+	Capital      float64
+	FaceValue    float64
 	Currency     string
 	Tel          string
 	Address      string
@@ -23,7 +23,7 @@ type StockLog struct {
 	Id       uint
 	Code     string
 	Market   string
-	Ask      int64 //매도가
-	Bid      int64 //매수가
+	Ask      float64 //매도가
+	Bid      float64 //매수가
 	Datetime time.Time
 }
