@@ -149,14 +149,18 @@ func CollectStockLog(controller chan string) {
 	}
 }
 
-func buyStock(code string, cnt uint) {
+func tradeStock(tradeType, code string, cnt uint) {
+	if tradeType != "ask" && tradeType != "bid" {
+		log.Fatal("tradeType parameter value was wrong.")
+		return
+	}
 	symbol := GetStockInfo(code)
 
 	tradeLog := model.TradeLog{
 		UserEmail:   "kyc1682@gmail.com",
 		StockCode:   symbol.Code,
 		StockMarket: symbol.Market,
-		TradeType:   "ask", //매수
+		TradeType:   tradeType,
 		Price:       symbol.Ask,
 		Count:       cnt,
 	}
@@ -177,14 +181,14 @@ func commander(commandCh chan<- string) {
 			break
 		case "start", "stop":
 			commandCh <- inputStr
-		case "buy":
+		case "ask", "bid":
 			code := args[1]
 			cnt, err := strconv.Atoi(args[2])
 			if err != nil {
 				log.Fatal(err)
 			}
 
-			buyStock(code, uint(cnt))
+			tradeStock(command, code, uint(cnt))
 		}
 	}
 }
