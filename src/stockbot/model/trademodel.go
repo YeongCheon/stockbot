@@ -11,5 +11,6 @@ type TradeLog struct {
 	StockMarket string
 	TradeType   string
 	Price       uint
+	Count       uint
 	Timestamp   time.Time
 }

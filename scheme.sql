@@ -46,6 +46,7 @@ CREATE TABLE IF NOT EXISTS `trade_log`(
        `stock_market` CHAR(6) NOT NULL,
        `trade_type` CHAR(3) NOT NULL CHECK (`trade_type` IN ('ask','bid')),
        `price` NUMERIC(15,2) NOT NULL, /*거래체결 가격*/
+       `count` NUMERIC(15,2) NOT NULL DEFAULT 0,
        `trade_timestamp` timestamp DEFAULT CURRENT_TIMESTAMP,
        CONSTRAINT fk_trade_log_email FOREIGN KEY (`member_email`) REFERENCES `member`(`email`) ON DELETE CASCADE ON UPDATE CASCADE,
        CONSTRAINT fk_trade_log_code FOREIGN KEY (`stock_code`, `stock_market`) REFERENCES `stock`(`code`, `market`) ON DELETE CASCADE ON UPDATE CASCADE
