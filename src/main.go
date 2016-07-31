@@ -4,7 +4,6 @@ import (
 	stockdb "stockbot/db"
 	"stockbot/model"
 
-	"bufio"
 	"encoding/csv"
 	"fmt"
 	"io"
@@ -36,12 +35,12 @@ func GetStockInfo(stockCode string) model.StockLog {
 
 	res, err := http.Get(url)
 	if err != nil {
-		log.Fatal(err)
+		log.Println(err)
 	}
 
 	result, err := ioutil.ReadAll(res.Body)
 	if err != nil {
-		log.Fatal(err)
+		log.Println(err)
 	}
 
 	parseResults := ParseYahooCSV(result)
@@ -59,17 +58,17 @@ func ParseYahooCSV(target []byte) (logs []model.StockLog) {
 			break
 		}
 		if err != nil {
-			log.Fatal(err)
+			log.Println(err)
 		}
 
 		stockLog.Code = record[0]
 		ask, err := strconv.ParseFloat(record[2], 64)
 		if err != nil {
-			log.Fatal(err)
+			log.Println(err)
 		}
 		bid, err := strconv.ParseFloat(record[3], 64)
 		if err != nil {
-			log.Fatal(err)
+			log.Println(err)
 		}
 
 		stockLog.Ask = ask
@@ -92,7 +91,7 @@ func CollectStockLog(controller chan string) {
 	/*
 		timezone, err := time.LoadLocation("Asia/Seoul")
 		if err != nil {
-			log.Fatal(err)
+			log.Println(err)
 		}
 	*/
 
@@ -104,9 +103,9 @@ func CollectStockLog(controller chan string) {
 			now := time.Now()
 
 			if now.Weekday() == 0 || now.Weekday() == 6 {
-				fmt.Println("today is weekend")
+				//fmt.Println("today is weekend")
 			} else if now.Hour() < MARKETSTARTTIME || now.Hour() >= MARKETENDTIME {
-				fmt.Println("market was closed")
+				//fmt.Println("market was closed")
 			} else {
 				limitCh <- true
 
@@ -117,12 +116,12 @@ func CollectStockLog(controller chan string) {
 
 					res, err := http.Get(url)
 					if err != nil {
-						log.Fatal(err)
+						log.Println(err)
 					}
 
 					result, err := ioutil.ReadAll(res.Body)
 					if err != nil {
-						log.Fatal(err)
+						log.Println(err)
 					}
 
 					stockLogs := ParseYahooCSV(result)
@@ -149,10 +148,10 @@ func CollectStockLog(controller chan string) {
 	}
 }
 
-func tradeStock(tradeType, code string, cnt uint) {
+func tradeStock(userEmail, tradeType, code string, cnt uint) bool {
 	if tradeType != "ask" && tradeType != "bid" {
-		log.Fatal("tradeType parameter value was wrong.")
-		return
+		log.Println("tradeType parameter value was wrong.")
+		return false
 	}
 	symbol := GetStockInfo(code)
 
@@ -164,33 +163,39 @@ func tradeStock(tradeType, code string, cnt uint) {
 		Price:       symbol.Ask,
 		Count:       cnt,
 	}
-	stockdb.InsertTradeLog(tradeLog)
+	_, err := stockdb.InsertTradeLog(tradeLog)
+	if err == nil {
+		return true
+	} else {
+		return false
+	}
 }
 
-func commander(commandCh chan<- string) {
-	consoleReader := bufio.NewReader(os.Stdin)
+func commanderForWeb(commandCh chan<- string) {
+	/*
+		http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+			io.WriteString(w, "hello, stockbot!")
+		})
+	*/
 
-	for {
-		inputStr, _ := consoleReader.ReadString('\n')
-		inputStr = strings.Replace(inputStr, "\n", "", -1)
-		args := strings.Split(inputStr, " ")
-		command := args[0]
-
-		switch command {
-		case "exit":
-			break
-		case "start", "stop":
-			commandCh <- inputStr
-		case "ask", "bid":
-			code := args[1]
-			cnt, err := strconv.Atoi(args[2])
-			if err != nil {
-				log.Fatal(err)
+	http.HandleFunc("/trade", func(w http.ResponseWriter, r *http.Request) {
+		switch r.Method {
+		case "POST":
+			if tradeStock("kyc1682@gmail.com", "bid", "005930", 10) {
+				io.WriteString(w, "trade success")
+			} else {
+				io.WriteString(w, "trade fail")
 			}
 
-			tradeStock(command, code, uint(cnt))
 		}
-	}
+	})
+
+	http.HandleFunc("/exit", func(w http.ResponseWriter, r *http.Request) {
+		io.WriteString(w, "exit")
+		os.Exit(1)
+	})
+
+	log.Println(http.ListenAndServe(":9999", nil))
 }
 
 func main() {
@@ -199,5 +204,5 @@ func main() {
 
 	go CollectStockLog(commandCh)
 
-	commander(commandCh)
+	commanderForWeb(commandCh)
 }
