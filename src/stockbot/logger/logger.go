@@ -16,7 +16,7 @@ func (l *Logger) Trace(message string) {
 
 func NewLogger() *Logger {
 	l := &Logger{}
-	logFile, err := os.Create("stockbot.log")
+	logFile, err := os.OpenFile("stockbot.log", os.O_CREATE|os.O_RDWR|os.O_APPEND, 0775)
 	if err != nil {
 		log.Fatal(err)
 	}
