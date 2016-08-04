@@ -2,20 +2,25 @@ package main
 
 import (
 	stockdb "stockbot/db"
+	"stockbot/logger"
 	"stockbot/model"
 
 	"encoding/csv"
 	"errors"
-	"fmt"
 	"io"
 	"io/ioutil"
-	"log"
 	"net/http"
 	"os"
 	"strconv"
 	"strings"
-	"time"
 )
+
+var stockLogger *logger.Logger
+
+func init() {
+	stockLogger = logger.NewLogger()
+	stockLogger.Println("hello world!!!!!!!!!!!!!")
+}
 
 func GetStockLogFromYahoo(stockSymbolList []model.StockSymbol) ([]model.StockLog, error) {
 	var s string
@@ -26,12 +31,12 @@ func GetStockLogFromYahoo(stockSymbolList []model.StockSymbol) ([]model.StockLog
 	url := "http://finance.yahoo.com/d/quotes.csv?s=" + s + "&" + f
 	res, err := http.Get(url)
 	if err != nil {
-		log.Println(err)
+		stockLogger.Println(err)
 	}
 
 	result, err := ioutil.ReadAll(res.Body)
 	if err != nil {
-		log.Println(err)
+		stockLogger.Println(err)
 	}
 
 	stockLogs := ParseYahooCSV(result)
@@ -44,7 +49,6 @@ func GetStockLogFromYahoo(stockSymbolList []model.StockSymbol) ([]model.StockLog
 		stockLogs[idx].Market = stockSymbolList[idx].Market
 	}
 
-	fmt.Println(stockLogs)
 	return stockLogs, nil
 }
 
@@ -53,29 +57,28 @@ func ParseYahooCSV(target []byte) []model.StockLog {
 	reader := csv.NewReader(strings.NewReader(string(target)))
 	defer func() {
 		if r := recover(); r != nil {
-			log.Println(r)
+			stockLogger.Println(r)
 		}
 	}()
 	for {
 		stockLog := model.StockLog{}
 
 		record, err := reader.Read()
-		fmt.Println(record)
 		if err == io.EOF {
 			break
 		}
 		if err != nil {
-			log.Println(err)
+			stockLogger.Println(err)
 		}
 
 		stockLog.Code = record[0]
 		ask, err := strconv.ParseFloat(record[2], 64)
 		if err != nil {
-			log.Println(err)
+			stockLogger.Println(err)
 		}
 		bid, err := strconv.ParseFloat(record[3], 64)
 		if err != nil {
-			log.Println(err)
+			stockLogger.Println(err)
 		}
 
 		stockLog.Ask = ask
@@ -88,7 +91,7 @@ func ParseYahooCSV(target []byte) []model.StockLog {
 }
 
 func CollectStockLog(controller chan string) {
-	log.Println("start stock log crawling...")
+	stockLogger.Println("start stock log crawling...")
 	const MARKETSTARTTIME int = 9
 	const MARKETENDTIME int = 15
 
@@ -98,7 +101,7 @@ func CollectStockLog(controller chan string) {
 	/*
 		timezone, err := time.LoadLocation("Asia/Seoul")
 		if err != nil {
-			log.Println(err)
+			stockLogger.Println(err)
 		}
 	*/
 
@@ -108,63 +111,62 @@ func CollectStockLog(controller chan string) {
 	for {
 		select {
 		case param := <-controller:
-			fmt.Println(param)
 			switch param {
 			case "start":
-				fmt.Println("start")
 				isStop = false
 			case "stop":
-				fmt.Println("break")
 				isStop = true
 			}
 		default:
 		}
 
-		now := time.Now()
+		/*
+			now := time.Now()
 
-		if now.Weekday() == 0 || now.Weekday() == 6 {
-			//fmt.Println("today is weekend")
-		} else if now.Hour() < MARKETSTARTTIME || now.Hour() >= MARKETENDTIME {
-			//fmt.Println("market was closed")
-		} else {
-			for i := 0; i < len(stockList); i += 10 {
-				list := stockList[i : i+10]
-				limitCh <- true
+			if now.Weekday() == 0 || now.Weekday() == 6 {
+				//fmt.Println("today is weekend")
+			} else if now.Hour() < MARKETSTARTTIME || now.Hour() >= MARKETENDTIME {
+				//fmt.Println("market was closed")
+			} else {
+		*/
+		for i := 0; i < len(stockList); i += 10 {
+			list := stockList[i : i+10]
+			limitCh <- true
 
-				if isStop {
-					break
+			if isStop {
+				break
+			}
+
+			go func(list []model.StockSymbol) {
+				defer func() {
+					<-limitCh
+				}()
+
+				stockLogList, err := GetStockLogFromYahoo(list)
+				if err != nil {
+					stockLogger.Println(err)
+				} else {
+					for _, stockLog := range stockLogList {
+						stockdb.InsertStockLog(stockLog)
+					}
 				}
 
-				go func(list []model.StockSymbol) {
-					defer func() {
-						<-limitCh
-					}()
+			}(list)
 
-					stockLogList, err := GetStockLogFromYahoo(list)
-					if err != nil {
-						log.Println(err)
-					} else {
-						for _, stockLog := range stockLogList {
-							stockdb.InsertStockLog(stockLog)
-						}
-					}
-
-				}(list)
-
-			}
 		}
+		//		}
 
 	}
 }
 
 func tradeStock(userEmail, tradeType string, symbol model.StockSymbol, cnt uint) bool {
 	if tradeType != "ask" && tradeType != "bid" {
-		log.Println("tradeType parameter value was wrong.")
+		stockLogger.Println("tradeType parameter value was wrong.")
 		return false
 	}
 	stockLogList, err := GetStockLogFromYahoo([]model.StockSymbol{symbol})
 	if err != nil {
-		log.Println(err)
+		stockLogger.Println(err)
 		return false
 	}
 
@@ -226,7 +228,7 @@ func commanderForWeb(commandCh chan<- string) {
 		io.WriteString(w, "test")
 	})
 
-	log.Println(http.ListenAndServe(":9999", nil))
+	stockLogger.Println(http.ListenAndServe(":9999", nil))
 }
 
 func main() {
