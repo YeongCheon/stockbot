@@ -42,33 +42,67 @@ func InsertStock(symbol StockSymbol) {
 	}
 }
 
-func InsertUser(user User) {
+func InsertUser(user User) error {
 	conn := getConn()
-	if conn != nil {
-		defer conn.Close()
+	if conn == nil {
+		return errors.New("connection is null")
 	}
-	statment, err := conn.Prepare("INSERT INTO user(`email`, `name`) VALUES(?, ?)")
+	defer conn.Close()
+
+	statment, err := conn.Prepare("INSERT INTO member(`email`, `name`) VALUES(?, ?)")
 	if err != nil {
 		log.Println(err)
+		return err
 	}
 
 	result, err := statment.Exec(user.Email, user.Name)
 	if err != nil {
 		log.Println(err)
 		log.Println(result)
+		return err
 	}
+
+	return nil
 }
 
-func SelectUser(email string) User {
+func DeleteUser(user User) error {
+	conn := getConn()
+	if conn == nil {
+		return errors.New("connection is null")
+	}
+	defer conn.Close()
+
+	statment, err := conn.Prepare("DELETE FROM member WHERE email = ?")
+	if err != nil {
+		log.Println(err)
+		return err
+	}
+
+	result, err := statment.Exec(user.Email)
+	if err != nil {
+		log.Println(err)
+		log.Println(result)
+		return err
+	}
+
+	return nil
+}
+
+func SelectUser(email string) *User {
 	conn := getConn()
 	if conn != nil {
 		defer conn.Close()
 	}
 
-	statment, err := conn.Prepare("SELECT `email`, `name` FROM `user` WHERE email = ?")
+	statment, err := conn.Prepare("SELECT `email`, `name` FROM `member` WHERE email = ?")
+	if err != nil {
+		log.Println(err)
+		return nil
+	}
 	rows, err := statment.Query(email)
 	if err != nil {
 		log.Println(err)
+		return nil
 	}
 
 	user := User{}
@@ -76,7 +110,7 @@ func SelectUser(email string) User {
 		rows.Scan(&user.Email, &user.Name)
 	}
 
-	return user
+	return &user
 }
 
 func InsertStockLog(stockLog StockLog) (int64, error) {
