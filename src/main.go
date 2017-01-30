@@ -6,18 +6,22 @@ import (
 	"stockbot/logger"
 	"stockbot/model"
 
-	"context"
+	// "context"
 	"io"
 	"net/http"
 	"os"
 )
 
-var stockLogger *logger.Logger
-var stockCrawler bot.StockCrawler
+var (
+	stockLogger  *logger.Logger
+	stockCrawler bot.StockCrawler
+)
 
 func init() {
-	stockCrawler = bot.StockCrawler{}
 	stockLogger = logger.NewLogger()
+	stockCrawler = bot.StockCrawler{
+		StockLogger: stockLogger,
+	}
 }
 
 func tradeStock(userEmail, tradeType string, symbol model.StockSymbol, cnt uint) bool {
@@ -80,7 +84,7 @@ func main() {
 	commandCh := make(chan string)
 
 	//go CollectStockLog(commandCh)
-	go stockCrawler.CollectStockLog()
+	go stockCrawler.CollectStockData(commandCh)
 
 	commanderForWeb(commandCh)
 }

@@ -17,7 +17,7 @@ import (
 const APIURL string = "http://finance.yahoo.com/d/quotes.csv"
 
 type StockCrawler struct {
-	stockLogger *logger.Logger
+	StockLogger *logger.Logger
 }
 
 func (stockCrawler *StockCrawler) GetStockLogFromYahoo(stockSymbolList []model.StockSymbol) ([]model.StockLog, error) {
@@ -29,12 +29,12 @@ func (stockCrawler *StockCrawler) GetStockLogFromYahoo(stockSymbolList []model.S
 	url := APIURL + "?s=" + s + "&" + f
 	res, err := http.Get(url)
 	if err != nil {
-		stockCrawler.stockLogger.Println(err)
+		stockCrawler.StockLogger.Println(err)
 	}
 
 	result, err := ioutil.ReadAll(res.Body)
 	if err != nil {
-		stockCrawler.stockLogger.Println(err)
+		stockCrawler.StockLogger.Println(err)
 	}
 
 	stockLogs := stockCrawler.parseYahooCSV(result)
@@ -55,7 +55,7 @@ func (stockCrawler *StockCrawler) parseYahooCSV(target []byte) []model.StockLog 
 	reader := csv.NewReader(strings.NewReader(string(target)))
 	defer func() {
 		if r := recover(); r != nil {
-			stockCrawler.stockLogger.Println(r)
+			stockCrawler.StockLogger.Println(r)
 		}
 	}()
 	for {
@@ -66,17 +66,17 @@ func (stockCrawler *StockCrawler) parseYahooCSV(target []byte) []model.StockLog 
 			break
 		}
 		if err != nil {
-			stockCrawler.stockLogger.Println(err)
+			stockCrawler.StockLogger.Println(err)
 		}
 
 		stockLog.Code = record[0]
 		ask, err := strconv.ParseFloat(record[2], 64)
 		if err != nil {
-			stockCrawler.stockLogger.Println(err)
+			stockCrawler.StockLogger.Println(err)
 		}
 		bid, err := strconv.ParseFloat(record[3], 64)
 		if err != nil {
-			stockCrawler.stockLogger.Println(err)
+			stockCrawler.StockLogger.Println(err)
 		}
 
 		stockLog.Ask = ask
@@ -89,7 +89,7 @@ func (stockCrawler *StockCrawler) parseYahooCSV(target []byte) []model.StockLog 
 }
 
 func (stockCrawler *StockCrawler) CollectStockData(controller chan string) {
-	stockCrawler.stockLogger.Println("start stock log crawling...")
+	stockCrawler.StockLogger.Println("start stock log crawling...")
 	const MARKETSTARTTIME int = 9
 	const MARKETENDTIME int = 15
 
@@ -133,13 +133,17 @@ func (stockCrawler *StockCrawler) CollectStockData(controller chan string) {
 
 				stockLogList, err := stockCrawler.GetStockLogFromYahoo(list)
 				if err != nil {
-					stockCrawler.stockLogger.Println(err)
+					stockCrawler.StockLogger.Println(err)
 				} else {
 					for _, stockLog := range stockLogList {
 						stockdb.InsertStockLog(stockLog)
+						stockCrawler.StockLogger.Println(stockLog)
 					}
 				}
 			}(list)
+		}
+		if isStop {
+			break
 		}
 	}
 }
